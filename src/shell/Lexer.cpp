@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 module;
 
-#include <fmt/format.h>
 #include <crispy/logstore.h>
+
+#include <fmt/format.h>
+
 #include <cstring>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
-
-auto inline lexerLog = logstore::category("lexer ", "Lexer logger ", logstore::category::state::Enabled );
+auto inline lexerLog = logstore::category("lexer ", "Lexer logger", logstore::category::state::Enabled);
 
 using namespace std::string_view_literals;
 
@@ -146,6 +147,13 @@ export class StringSource final: public Source
 
 export class Lexer
 {
+
+    template <typename... T>
+    void trace(std::string info, T... args)
+    {
+        fmt::print(fmt::runtime("Lexer: " + info), args...);
+    }
+
   public:
     explicit Lexer(std::unique_ptr<Source> source): _source { std::move(source) }
     {
@@ -201,6 +209,8 @@ export class Lexer
                     return consumeCharAndConfirmToken(Token::DollarNot);
                 else if (_currentChar == '?')
                     return consumeCharAndConfirmToken(Token::DollarQuestion);
+                else if (_currentChar == '{')
+                    return consumeIdentifierInsideBracket(Token::DollarName);
                 else if (_currentChar < 0x80 && std::isalpha(static_cast<char>(_currentChar)))
                     return consumeIdentifier(Token::DollarName);
                 else if (_currentChar < 0x80 && std::isdigit(static_cast<char>(_currentChar)))
@@ -235,18 +245,19 @@ export class Lexer
     }
 
     static std::vector<TokenInfo> tokenize(std::unique_ptr<Source> source)
-{
-    auto tokens = std::vector<TokenInfo> {};
-    auto lexer = Lexer { std::move(source) };
-
-    while (lexer.currentToken() != Token::EndOfInput)
     {
-        tokens.emplace_back(TokenInfo { lexer.currentToken(), lexer.currentLiteral(), lexer.currentRange() });
-        lexer.nextToken();
-    }
+        auto tokens = std::vector<TokenInfo> {};
+        auto lexer = Lexer { std::move(source) };
 
-    return tokens;
-}
+        while (lexer.currentToken() != Token::EndOfInput)
+        {
+            tokens.emplace_back(
+                TokenInfo { lexer.currentToken(), lexer.currentLiteral(), lexer.currentRange() });
+            lexer.nextToken();
+        }
+
+        return tokens;
+    }
 
   private:
     [[nodiscard]] bool eof() const noexcept { return _currentChar == char32_t(-1); }
@@ -277,6 +288,23 @@ export class Lexer
     }
 
     Token consumeIdentifier() { return consumeIdentifier(Token::Identifier); }
+
+    Token consumeIdentifierInsideBracket(Token token)
+    {
+        auto constexpr ReservedSymbols = U"|<>()[]!$'\"\t\r\n ;"sv;
+        int countBracket = 0;
+        while (!eof() && ReservedSymbols.find(_currentChar) == std::string_view::npos)
+        {
+            trace("consumeIdentifier: '{}'\n", (char) _currentChar);
+            if (_currentChar != '{' && _currentChar != '}')
+                _nextToken.literal += static_cast<char>(_currentChar); // TODO: UTF-8
+            nextChar();
+        }
+        if (countBracket != 0)
+            trace("not balanced brackets \n"); // TODO
+        trace("consumeIdentifier: result: '{}'\n", _nextToken.literal);
+        return confirmToken(token);
+    }
 
     Token consumeIdentifier(Token token)
     {
@@ -315,26 +343,27 @@ export class Lexer
     }
 
     Token consumeCharAndConfirmToken(Token token)
-{
-    nextChar();
-    return confirmToken(token);
-}
+    {
+        nextChar();
+        return confirmToken(token);
+    }
 
     Token confirmToken(Token token)
-{
-    _nextToken.token = token;
-    _nextToken.literal = _nextToken.literal;
-    auto const [a, b, _] = _source->currentSourceLocation();
-    _nextToken.location.end = { .line = a, .column = b };
-    _currentToken = _nextToken;
+    {
+        _nextToken.token = token;
+        _nextToken.literal = _nextToken.literal;
+        auto const [a, b, _] = _source->currentSourceLocation();
+        _nextToken.location.end = { .line = a, .column = b };
+        _currentToken = _nextToken;
 
-    _nextToken.literal = {};
-    _nextToken.location.name = _source->currentSourceLocation().name;
-    _nextToken.location.begin = _nextToken.location.end;
+        trace("Token is ready : {} \n", _currentToken);
 
-    return token;
-}
+        _nextToken.literal = {};
+        _nextToken.location.name = _source->currentSourceLocation().name;
+        _nextToken.location.begin = _nextToken.location.end;
 
+        return token;
+    }
 
     std::unique_ptr<Source> _source;
     char32_t _currentChar = 0;
@@ -343,8 +372,6 @@ export class Lexer
     SourceLocationRange _currentRange {};
 };
 } // namespace endo
-
-
 
 template <>
 struct fmt::formatter<endo::LineColumn>: fmt::formatter<std::string>

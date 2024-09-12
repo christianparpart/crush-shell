@@ -168,6 +168,22 @@ struct BuiltinSetStmt final: public Statement
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 
+
+struct VariableSubstExpr final: public Statement
+{
+    std::reference_wrapper<CoreVM::NativeCallback const> callback;
+    std::unique_ptr<Expr> name;
+
+    VariableSubstExpr(std::reference_wrapper<CoreVM::NativeCallback const> callback,
+                   std::unique_ptr<Expr> name):
+        callback { callback }, name {std::move( name )}
+    {
+    }
+
+    void accept(Visitor& visitor) const override { visitor.visit(*this); }
+};
+
+
 struct BuiltinChDirStmt final: public Statement
 {
     std::reference_wrapper<CoreVM::NativeCallback const> callback;
@@ -217,6 +233,7 @@ struct SubstitutionExpr final: public Expr
 {
     std::unique_ptr<Statement> pipeline;
 
+    SubstitutionExpr(std::unique_ptr<Statement> pipeline): pipeline(std::move(pipeline)) {}
     void accept(Visitor& visitor) const override { visitor.visit(*this); }
 };
 

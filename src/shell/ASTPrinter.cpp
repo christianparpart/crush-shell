@@ -2,9 +2,10 @@
 module;
 #include <shell/AST.h>
 #include <shell/Visitor.h>
-#include <fmt/format.h>
 
 #include <crispy/assert.h>
+
+#include <fmt/format.h>
 
 import Lexer;
 
@@ -90,6 +91,16 @@ export class ASTPrinter: public Visitor
         }
     }
 
+    void visit(VariableSubstExpr const& node) override
+    {
+        _result += "getenv";
+        if (node.name)
+        {
+            _result += ' ';
+            node.name->accept(*this);
+        }
+    }
+
     void visit(BuiltinExitStmt const& node) override
     {
         _result += "exit";
@@ -146,7 +157,7 @@ export class ASTPrinter: public Visitor
     }
 
     void visit(LiteralExpr const& node) override { _result += fmt::format("{}", node.value); }
-    void visit(SubstitutionExpr const& node) override { crispy::ignore_unused(node); }
+    void visit(SubstitutionExpr const& node) override { node.pipeline->accept(*this); }
     void visit(CommandFileSubst const& node) override { crispy::ignore_unused(node); }
 };
 

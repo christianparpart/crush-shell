@@ -6,6 +6,7 @@ namespace endo::ast
 
 struct BuiltinChDirStmt;
 struct BuiltinSetStmt;
+struct VariableSubstExpr;
 struct BuiltinExportStmt;
 struct BuiltinFalseStmt;
 struct BuiltinExitStmt;
@@ -48,6 +49,7 @@ struct Visitor
     virtual void visit(BuiltinReadStmt const&) = 0;
     virtual void visit(BuiltinChDirStmt const&) = 0;
     virtual void visit(BuiltinSetStmt const&) = 0;
+    virtual void visit(VariableSubstExpr const&) = 0;
 
     // epxressions
     virtual void visit(LiteralExpr const&) = 0;

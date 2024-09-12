@@ -326,6 +326,12 @@ export class Shell final: public CoreVM::Runtime
         .returnType(CoreVM::LiteralType::Boolean)
         .bind(&Shell::builtinSet, this);
 
+    registerFunction("getenv")
+        .param<std::string>("name")
+        .returnType(CoreVM::LiteralType::String)
+        .bind(&Shell::builtinVariableSubst, this);
+
+
     registerFunction("callproc")
         .param<std::vector<std::string>>("args")
         //.param<std::vector<CoreVM::CoreNumber>>("redirects")
@@ -528,6 +534,15 @@ export class Shell final: public CoreVM::Runtime
     {
         _env.set(context.getString(1), context.getString(2));
         context.setResult(true);
+    }
+    void builtinVariableSubst(CoreVM::Params& context)
+    {
+        auto res = _env.get(context.getString(1));
+        if(res.has_value())
+            context.setResult(std::string(res.value()));
+        else {
+            context.setResult("Variable does not exist");
+        }
     }
     void builtinSetAndExport(CoreVM::Params& context)
     {
